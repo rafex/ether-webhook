@@ -11,6 +11,18 @@ import dev.rafex.ether.http.client.model.HttpMethod;
 import dev.rafex.ether.http.client.model.HttpRequestSpec;
 import dev.rafex.ether.json.JsonUtils;
 
+/**
+ * Payload de un webhook.
+ * Es un record inmutable que contiene todos los datos necesarios
+ * para enviar un webhook a un endpoint externo.
+ * 
+ * @param deliveryId ID de entrega único
+ * @param eventType tipo de evento
+ * @param occurredAt momento en que ocurrió el evento
+ * @param contentType tipo de contenido del cuerpo
+ * @param body cuerpo del payload en bytes
+ * @param headers cabeceras HTTP adicionales
+ */
 public record WebhookPayload(String deliveryId, String eventType, Instant occurredAt, String contentType, byte[] body,
         Map<String, List<String>> headers) {
 
@@ -19,16 +31,39 @@ public record WebhookPayload(String deliveryId, String eventType, Instant occurr
         headers = normalizeHeaders(headers);
     }
 
+    /**
+     * Crea un payload con contenido JSON.
+     * 
+     * @param deliveryId ID de entrega
+     * @param eventType tipo de evento
+     * @param value objeto a serializar como JSON
+     * @return el payload creado
+     */
     public static WebhookPayload ofJson(final String deliveryId, final String eventType, final Object value) {
         return new WebhookPayload(deliveryId, eventType, Instant.now(), "application/json",
                 JsonUtils.toJsonBytes(value), Map.of());
     }
 
+    /**
+     * Crea un payload con contenido de texto plano.
+     * 
+     * @param deliveryId ID de entrega
+     * @param eventType tipo de evento
+     * @param value contenido de texto
+     * @return el payload creado
+     */
     public static WebhookPayload ofText(final String deliveryId, final String eventType, final String value) {
         return new WebhookPayload(deliveryId, eventType, Instant.now(), "text/plain; charset=utf-8",
                 value == null ? new byte[0] : value.getBytes(StandardCharsets.UTF_8), Map.of());
     }
 
+    /**
+     * Añade una cabecera al payload.
+     * 
+     * @param name nombre de la cabecera
+     * @param value valor de la cabecera
+     * @return un nuevo payload con la cabecera añadida
+     */
     public WebhookPayload withHeader(final String name, final String value) {
         final var copy = new LinkedHashMap<String, List<String>>();
         copy.putAll(headers);
@@ -36,6 +71,12 @@ public record WebhookPayload(String deliveryId, String eventType, Instant occurr
         return new WebhookPayload(deliveryId, eventType, occurredAt, contentType, body, copy);
     }
 
+    /**
+     * Convierte el payload a una especificación de petición HTTP.
+     * 
+     * @param endpoint URL del endpoint
+     * @return la especificación de petición
+     */
     public HttpRequestSpec toRequest(final URI endpoint) {
         final var builder = HttpRequestSpec.builder(HttpMethod.POST, endpoint).body(body).contentType(contentType);
         for (final var entry : headers.entrySet()) {

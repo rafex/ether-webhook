@@ -16,6 +16,10 @@ import dev.rafex.ether.webhook.model.WebhookPayload;
 import dev.rafex.ether.webhook.model.WebhookSignature;
 import dev.rafex.ether.webhook.model.WebhookVerificationResult;
 
+/**
+ * Implementación de HMAC para firmar y verificar webhooks.
+ * Utiliza HMAC-SHA256 por defecto para garantizar integridad y autenticidad.
+ */
 public final class HmacWebhookSignerVerifier implements WebhookSigner, WebhookVerifier {
 
     private static final String DEFAULT_ALGORITHM = "HmacSHA256";
@@ -24,10 +28,22 @@ public final class HmacWebhookSignerVerifier implements WebhookSigner, WebhookVe
     private final String algorithm;
     private final Clock clock;
 
+    /**
+     * Crea un signer/verifier con secreto y algoritmo por defecto.
+     * 
+     * @param secret el secreto para HMAC
+     */
     public HmacWebhookSignerVerifier(final byte[] secret) {
         this(secret, DEFAULT_ALGORITHM, Clock.systemUTC());
     }
 
+    /**
+     * Crea un signer/verifier con configuración completa.
+     * 
+     * @param secret el secreto para HMAC
+     * @param algorithm el algoritmo HMAC (ej: HmacSHA256)
+     * @param clock el reloj para marcas de tiempo
+     */
     public HmacWebhookSignerVerifier(final byte[] secret, final String algorithm, final Clock clock) {
         this.secret = secret == null ? new byte[0] : secret.clone();
         this.algorithm = Objects.requireNonNullElse(algorithm, DEFAULT_ALGORITHM);
@@ -37,12 +53,25 @@ public final class HmacWebhookSignerVerifier implements WebhookSigner, WebhookVe
         }
     }
 
+    /**
+     * Firma un payload de webhook con HMAC.
+     * 
+     * @param payload el payload a firmar
+     * @return la firma generada
+     */
     @Override
     public WebhookSignature sign(final WebhookPayload payload) {
         final long timestamp = Instant.now(clock).toEpochMilli();
         return new WebhookSignature(algorithm, computeSignature(payload, timestamp), timestamp);
     }
 
+    /**
+     * Verifica la firma de un payload de webhook.
+     * 
+     * @param payload el payload a verificar
+     * @param signature la firma a validar
+     * @return el resultado de la verificación
+     */
     @Override
     public WebhookVerificationResult verify(final WebhookPayload payload, final WebhookSignature signature) {
         if (signature == null) {
@@ -60,6 +89,13 @@ public final class HmacWebhookSignerVerifier implements WebhookSigner, WebhookVe
         return WebhookVerificationResult.ok(signature);
     }
 
+    /**
+     * Calcula la firma HMAC para un payload.
+     * 
+     * @param payload el payload a firmar
+     * @param timestamp la marca de tiempo
+     * @return la firma en base64
+     */
     private String computeSignature(final WebhookPayload payload, final long timestamp) {
         try {
             final var mac = Mac.getInstance(algorithm);
@@ -71,12 +107,25 @@ public final class HmacWebhookSignerVerifier implements WebhookSigner, WebhookVe
         }
     }
 
+    /**
+     * Crea el payload canónico para la firma.
+     * 
+     * @param payload el payload original
+     * @param timestamp la marca de tiempo
+     * @return el payload canónico como string
+     */
     private static String canonicalPayload(final WebhookPayload payload, final long timestamp) {
         return String.join("\n", nullToEmpty(payload.deliveryId()), nullToEmpty(payload.eventType()),
                 nullToEmpty(payload.contentType()), Long.toString(timestamp),
                 Base64.getUrlEncoder().withoutPadding().encodeToString(payload.body()));
     }
 
+    /**
+     * Convierte un valor nulo a string vacío.
+     * 
+     * @param value el valor a convertir
+     * @return el valor o string vacío si es nulo
+     */
     private static String nullToEmpty(final String value) {
         return value == null ? "" : value;
     }
